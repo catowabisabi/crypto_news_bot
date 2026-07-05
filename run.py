@@ -6,6 +6,7 @@ from multiprocessing import Process
 import asyncio
 import logging
 import sys
+from datetime import datetime
 
 from news.class_news_fetcher import NewsFetcher
 from communication.class_telegram_bot import TelegramBot
@@ -108,9 +109,13 @@ if ENABLE_WEB_UI:
         per_page = request.args.get('per_page', 20, type=int)
         category = request.args.get('category', 'all')
 
-        # 過濾分類
-        if category != 'all':
-            news_data = [n for n in news_data if category.lower() in n.get('中文標題', '').lower()]
+        # 過濾分類 — 用關鍵詞匹配中英文標題
+        if category == 'crypto':
+            keywords = ['crypto', 'bitcoin', 'btc', 'ethereum', 'eth', 'stablecoin', 'blockchain', 'defi', 'trading', 'coin', 'token', 'exchange', 'wallet', 'miner', 'nft', 'web3', 'solana', 'ripple', 'xrp', 'dogecoin', 'memecoin', 'vasp', 'metaverse']
+            news_data = [n for n in news_data if any(kw in (n.get('中文標題','') + ' ' + n.get('英文標題','')).lower() for kw in keywords)]
+        elif category == 'stock':
+            keywords = ['stock', 'market', 'shares', 'trading', 'nasdaq', 'dow', 's&p', 'ftse', 'nikkei', 'hang seng', 'sensex', '收盘', '开盘', '股价', '股市', '股息', '指数', 'ipo', 'earnings', 'revenue', 'quarterly', '上市公司']
+            news_data = [n for n in news_data if any(kw in (n.get('中文標題','') + ' ' + n.get('英文標題','')).lower() for kw in keywords)]
 
         # 分頁
         start = (page - 1) * per_page
@@ -153,7 +158,7 @@ if ENABLE_WEB_UI:
             return jsonify({'success': True, 'data': favorites})
 
         elif request.method == 'POST':
-            data = request.json
+            data = request.json or {}
             news_id = data.get('news_id')
             news_data = data.get('news_data')
 
@@ -170,7 +175,7 @@ if ENABLE_WEB_UI:
             return jsonify({'success': True, 'message': 'Already in favorites'})
 
         elif request.method == 'DELETE':
-            data = request.json
+            data = request.json or {}
             news_id = data.get('news_id')
             favorites = [f for f in favorites if f.get('news_id') != news_id]
             with open(favorites_file, 'w', encoding='utf-8') as f:
@@ -209,6 +214,7 @@ if ENABLE_WEB_UI:
             chat_id = TELEGRAM_CHAT_ID
 
             # 檢查 CSV 目錄是否有新聞
+            from data.class_CSV_news_handler import CSVNewsHandler
             csv_handler = CSVNewsHandler()
             csv_files = csv_handler.get_csv_file_paths(1)
             has_news = any(os.path.isfile(f) for f in csv_files)

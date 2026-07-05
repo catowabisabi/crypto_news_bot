@@ -1,0 +1,7 @@
+{
+  "pushEnabled": true,
+  "quietStart": "22:00",
+  "quietEnd": "08:00",
+  "perPage": 20,
+  "chatId": "-1002133184985"
+}

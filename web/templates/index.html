@@ -1,238 +1,540 @@
 <!DOCTYPE html>
-<html lang="zh-TW" data-bs-theme="dark">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1a1a2e">
-    <title>新聞摘要助手</title>
-    <link rel="manifest" href="/static/manifest.json">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B0E11">
+<title>Crypto News Telegram Bot</title>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#12161B;
+    --card:#161B21;
+    --line:#232A32;
+    --text:#E8ECEF;
+    --sub:#8A94A0;
+    --bull:#00D964;
+    --bear:#FF5A4E;
+    --gold:#F5B700;
+    --mono: 'JetBrains Mono', 'Courier New', monospace;
+    --sans: 'Inter', -apple-system, 'PingFang TC', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:#000; color:var(--text); font-family:var(--sans);
+    min-height:100vh; padding:0;
+  }
+
+  /* ===== DESKTOP WRAPPER ===== */
+  .desktop-wrapper{
+    display:flex; justify-content:center; min-height:100vh;
+    background:var(--bg);
+  }
+
+  /* ===== MOBILE PHONE FRAME ===== */
+  .phone{
+    width:390px; min-height:100vh; background:var(--bg);
+    border-left:1px solid var(--line); border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+    position:relative;
+  }
+
+  /* ===== DESKTOP LAYOUT ===== */
+  @media (min-width:768px){
+    .phone{
+      width:100%; max-width:900px; min-height:100vh;
+      border:none; flex-direction:column;
+    }
+    .desktop-wrapper{ align-items:flex-start; }
+    .desktop-container{
+      display:flex; gap:0; width:100%; max-width:900px;
+      min-height:100vh;
+    }
+    .desktop-sidebar{
+      width:240px; flex-shrink:0; border-right:1px solid var(--line);
+      background:var(--panel);
+    }
+    .desktop-main{ flex:1; display:flex; flex-direction:column; }
+    /* Pin top/bottom on desktop too */
+    .navbar{ position:sticky; top:0; z-index:50; }
+    .bottom-nav-custom{ position:sticky; bottom:0; z-index:50; }
+  }
+
+  /* ===== 頂部導航 ===== */
+  .navbar{
+    padding:14px 16px 10px; background:var(--panel);
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:50;
+  }
+  .navbar-top{
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo{
+    display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-weight:700; font-size:17px; letter-spacing:.5px;
+  }
+  .logo-mark{
+    width:22px; height:22px; border-radius:5px;
+    background:linear-gradient(135deg, var(--gold), #B8860B);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:900; color:#0B0E11;
+  }
+  .navbar-actions{ display:flex; gap:14px; color:var(--sub); font-size:16px; cursor:pointer; }
+  .navbar-actions span:hover{ color:var(--text); }
+
+  /* 狀態面板：終端機風格單行 */
+  #status-panel{
+    margin-top:12px; padding:8px 10px; background:var(--bg);
+    border:1px solid var(--line); border-radius:8px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--mono); font-size:11px; color:var(--sub);
+  }
+  #status-panel .dot{
+    width:6px; height:6px; border-radius:50%; background:var(--bull);
+    display:inline-block; margin-right:5px; box-shadow:0 0 6px var(--bull);
+  }
+  #status-panel .dot.off{ background:var(--sub); box-shadow:none; }
+  #status-panel .seg{ display:flex; align-items:center; }
+  #status-panel .bot-on{ color:var(--bull); }
+
+  /* 情緒滾動條 ticker */
+  .ticker-strip{
+    overflow:hidden; white-space:nowrap; background:var(--bg);
+    border-bottom:1px solid var(--line); padding:6px 0;
+  }
+  .ticker-strip .track{
+    display:inline-block; animation:scroll 22s linear infinite;
+    font-family:var(--mono); font-size:11px;
+  }
+  .ticker-strip span{ margin-right:22px; }
+  .up{ color:var(--bull); } .down{ color:var(--bear); }
+  @keyframes scroll{ 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
+
+  /* ===== 分頁導航 ===== */
+  .nav-tabs-custom{
+    display:flex; gap:6px; padding:10px 16px; background:var(--panel);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-tabs-custom .tab{
+    flex:1; text-align:center; padding:8px 0; font-size:13px;
+    border-radius:7px; color:var(--sub); font-weight:600;
+    border:1px solid transparent; cursor:pointer; background:none;
+  }
+  .nav-tabs-custom .tab.active{
+    background:rgba(245,183,0,.12); color:var(--gold); border-color:rgba(245,183,0,.35);
+  }
+
+  /* ===== 新聞列表 ===== */
+  #news-list{ flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+
+  #news-list:empty{
+    display:flex; align-items:center; justify-content:center;
+    min-height:200px;
+  }
+  #news-list:empty::after{
+    content:'暫時沒有新聞'; color:var(--sub); font-size:14px;
+  }
+
+  .news-card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px 12px 12px; position:relative; overflow:hidden; cursor:pointer;
+  }
+  .news-card::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+  }
+  .news-card.positive::before{ background:var(--bull); }
+  .news-card.negative::before{ background:var(--bear); }
+  .news-card.neutral::before{ background:var(--sub); }
+
+  .news-card-header{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:var(--mono); font-size:10.5px; color:var(--sub); margin-bottom:6px;
+  }
+  .news-card-header .source{ color:var(--gold); font-weight:700; }
+  .news-title{ font-size:14.5px; font-weight:700; line-height:1.4; margin-bottom:4px; }
+  .news-summary{ font-size:12.5px; color:var(--sub); line-height:1.5; margin-bottom:10px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+  .news-footer{ display:flex; justify-content:space-between; align-items:center; }
+
+  .sentiment-badge{
+    font-family:var(--mono); font-size:11px; font-weight:700; padding:3px 9px;
+    border-radius:5px; letter-spacing:.3px;
+  }
+  .sentiment-badge.positive{ background:rgba(0,217,100,.12); color:var(--bull); }
+  .sentiment-badge.negative{ background:rgba(255,90,78,.12); color:var(--bear); }
+  .sentiment-badge.neutral{ background:rgba(138,148,160,.15); color:var(--sub); }
+
+  .card-actions .action-btn{
+    background:none; border:none; color:var(--sub); font-size:16px; cursor:pointer;
+    padding:0;
+  }
+  .card-actions .action-btn.active{ color:var(--gold); }
+
+  /* ===== 底部導航 ===== */
+  .bottom-nav-custom{
+    display:flex; background:var(--panel); border-top:1px solid var(--line);
+    padding:10px 0 18px;
+    position:sticky; bottom:0; z-index:50;
+  }
+  .nav-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    color:var(--sub); font-size:10.5px; cursor:pointer; background:none; border:none;
+  }
+  .nav-btn.active{ color:var(--gold); }
+  .nav-btn .icon{ font-size:18px; }
+
+  /* ===== Desktop Sidebar ===== */
+  @media (min-width:768px){
+    .desktop-sidebar-inner{ padding:16px; }
+    .sidebar-logo{
+      display:flex; align-items:center; gap:10px;
+      font-family:var(--mono); font-weight:700; font-size:15px;
+      padding-bottom:16px; border-bottom:1px solid var(--line); margin-bottom:16px;
+    }
+    .sidebar-logo .logo-mark{
+      width:28px; height:28px; border-radius:6px;
+      background:linear-gradient(135deg, var(--gold), #B8860B);
+      display:flex; align-items:center; justify-content:center;
+      font-size:14px; font-weight:900; color:#0B0E11;
+    }
+    .sidebar-status{
+      padding:12px; background:var(--bg); border:1px solid var(--line);
+      border-radius:8px; font-family:var(--mono); font-size:11px; margin-bottom:16px;
+    }
+    .sidebar-status .row{ display:flex; justify-content:space-between; margin-bottom:6px; }
+    .sidebar-status .row:last-child{ margin-bottom:0; }
+    .sidebar-status .label{ color:var(--sub); }
+    .sidebar-status .val{ color:var(--text); }
+    .sidebar-status .val.green{ color:var(--bull); }
+    .sidebar-status .val.red{ color:var(--bear); }
+    .sidebar-nav{ display:flex; flex-direction:column; gap:4px; }
+    .sidebar-nav .snav{
+      display:flex; align-items:center; gap:10px; padding:10px 12px;
+      border-radius:8px; color:var(--sub); font-size:13px; cursor:pointer;
+    }
+    .sidebar-nav .snav:hover{ background:var(--card); color:var(--text); }
+    .sidebar-nav .snav.active{ background:rgba(245,183,0,.12); color:var(--gold); }
+    .sidebar-nav .snav .sicon{ font-size:16px; }
+    .desktop-news-area{ flex:1; display:flex; flex-direction:column; }
+    .desktop-news-header{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 16px; background:var(--panel); border-bottom:1px solid var(--line);
+    }
+    .desktop-news-header h2{ font-size:15px; font-weight:700; }
+    .desktop-news-actions{ display:flex; gap:8px; }
+    .desktop-news-actions button{
+      background:none; border:1px solid var(--line); border-radius:6px;
+      color:var(--sub); padding:6px 12px; font-size:12px; cursor:pointer;
+    }
+    .desktop-news-actions button:hover{ border-color:var(--gold); color:var(--gold); }
+    .desktop-news-actions .btn-refresh:hover{ color:var(--bull); border-color:var(--bull); }
+    #desktop-news-list{
+      flex:1; padding:16px; display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:12px;
+    }
+    #desktop-news-list .news-card{ height:100%; }
+    @media (max-width:900px){
+      #desktop-news-list{ grid-template-columns:1fr; }
+    }
+  }
+
+  /* ===== Modal Overlays ===== */
+  .modal-overlay{
+    display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+    background:rgba(0,0,0,.7); z-index:100; align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.show{ display:flex; }
+
+  .modal-sheet{
+    background:var(--panel); border-top:1px solid var(--line);
+    border-radius:16px 16px 0 0; width:390px; max-height:85vh;
+    overflow-y:auto; padding:20px 16px 40px;
+  }
+  .modal-sheet .modal-handle{
+    width:36px; height:4px; background:var(--line); border-radius:2px;
+    margin:0 auto 16px;
+  }
+  .modal-sheet h5{ font-size:16px; font-weight:700; margin-bottom:16px; color:var(--text); }
+
+  .modal-field{ margin-bottom:16px; }
+  .modal-field label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-family:var(--mono); }
+  .modal-field input, .modal-field select{
+    width:100%; background:var(--bg); border:1px solid var(--line); border-radius:8px;
+    color:var(--text); padding:10px 12px; font-size:14px; outline:none;
+  }
+  .modal-field input:focus, .modal-field select:focus{ border-color:var(--gold); }
+
+  .btn-gold{
+    width:100%; padding:12px; background:var(--gold); color:#0B0E11;
+    border:none; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  .btn-gold:hover{ opacity:.9; }
+
+  .btn-row{ display:flex; gap:10px; margin-top:16px; }
+  .btn-row button{ flex:1; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600; }
+
+  /* ===== Toast ===== */
+  .toast-msg{
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:var(--card); border:1px solid var(--line); border-radius:8px;
+    padding:10px 16px; font-size:13px; color:var(--text);
+    z-index:200; display:none; white-space:nowrap;
+  }
+  .toast-msg.show{ display:block; animation:fadeUp .3s; }
+  @keyframes fadeUp{ from{opacity:0;transform:translateX(-50%) translateY(10px);} to{opacity:1;transform:translateX(-50%) translateY(0);} }
+  .toast-msg.error{ border-color:var(--bear); color:var(--bear); }
+  .toast-msg.success{ border-color:var(--bull); color:var(--bull); }
+
+  /* ===== Desktop Modal (centered) ===== */
+  @media (min-width:768px){
+    .modal-overlay{ align-items:center; }
+    .modal-sheet{ border-radius:16px; max-width:600px; width:90%; max-height:80vh; }
+  }
+</style>
 </head>
 <body>
-    <div id="app">
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark-gradient sticky-top">
-            <div class="container-fluid px-3">
-                <span class="navbar-brand fw-bold"><i class="bi bi-newspaper me-2"></i>新聞摘要</span>
 
-                <div class="d-flex align-items-center gap-2">
-                    <div id="status-panel" class="status-panel d-none d-lg-flex align-items-center gap-3 me-3">
-                        <div class="status-item">
-                            <span class="status-label">Chat ID</span>
-                            <span id="status-chat-id" class="status-value">-</span>
-                        </div>
-                        <div class="status-divider"></div>
-                        <div class="status-item">
-                            <span class="status-label">狀態</span>
-                            <span id="status-health" class="badge bg-success">Healthy</span>
-                        </div>
-                        <div class="status-divider"></div>
-                        <div class="status-item">
-                            <span class="status-label">Bot</span>
-                            <span id="status-bot" class="badge bg-secondary">-</span>
-                        </div>
-                    </div>
-                    <button id="btn-refresh" class="btn btn-outline-light btn-sm" title="刷新">
-                        <i class="bi bi-arrow-clockwise"></i>
-                    </button>
-                    <button id="btn-settings" class="btn btn-outline-light btn-sm" title="設定">
-                        <i class="bi bi-gear"></i>
-                    </button>
-                </div>
-            </div>
-        </nav>
+<div class="desktop-wrapper">
+<div class="desktop-container">
 
-        <ul class="nav nav-tabs-custom nav-pills mb-0 px-3 pt-3 bg-dark">
-            <li class="nav-item">
-                <button class="nav-link active" data-category="all">
-                    <i class="bi bi-collection me-1"></i>全部
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-category="crypto">
-                    <i class="bi bi-currency-bitcoin me-1"></i>Crypto
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-category="stock">
-                    <i class="bi bi-graph-up me-1"></i>股票
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-category="favorites">
-                    <i class="bi bi-star me-1"></i>收藏
-                </button>
-            </li>
-        </ul>
+  <!-- ========== MOBILE PHONE FRAME ========== -->
+  <div class="phone">
 
-        <main class="container-fluid px-3 py-3" style="padding-bottom: 80px;">
-            <div id="news-list" class="row g-3">
-                <div class="col-12 text-center py-5" id="loading">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 text-muted">載入中...</p>
-                </div>
-            </div>
-        </main>
+    <nav class="navbar">
+      <div class="navbar-top">
+        <div class="logo"><div class="logo-mark">G</div><span>CRYPTO NEWS</span></div>
+        <div class="navbar-actions">
+          <span id="btn-refresh" title="刷新">⟳</span>
+          <span id="btn-settings" title="設定">⚙</span>
+        </div>
+      </div>
+      <div id="status-panel">
+        <div class="seg"><span class="dot off" id="status-dot"></span><span id="status-chat-id">—</span></div>
+        <div class="seg bot-on" id="status-bot-text">● BOT OFF</div>
+        <div class="seg" id="status-health-text">—</div>
+      </div>
+    </nav>
 
-        <nav class="bottom-nav-custom fixed-bottom bg-dark border-top">
-            <div class="container-fluid d-flex justify-content-around py-2">
-                <button class="nav-btn active" data-page="home">
-                    <i class="bi bi-house-fill"></i>
-                    <span>首頁</span>
-                </button>
-                <button class="nav-btn" data-page="favorites">
-                    <i class="bi bi-star-fill"></i>
-                    <span>收藏</span>
-                </button>
-                <button class="nav-btn" data-page="settings">
-                    <i class="bi bi-gear-fill"></i>
-                    <span>設定</span>
-                </button>
-            </div>
-        </nav>
+    <div class="ticker-strip">
+      <div class="track" id="ticker-track">
+        <span>BTC <span class="up">▲ 看好</span></span>
+        <span>ETH <span class="up">▲ 看好</span></span>
+        <span>SOL <span class="down">▼ 看淡</span></span>
+        <span>BTC <span class="up">▲ 看好</span></span>
+        <span>ETH <span class="up">▲ 看好</span></span>
+        <span>SOL <span class="down">▼ 看淡</span></span>
+      </div>
     </div>
 
-    <div class="modal fade" id="news-modal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-scrollable modal-lg">
-            <div class="modal-content bg-dark-card">
-                <div class="modal-header border-secondary">
-                    <div>
-                        <span id="modal-source" class="badge bg-primary mb-1"></span>
-                        <span id="modal-date" class="text-muted small ms-2"></span>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <h5 id="modal-title" class="modal-title mb-3"></h5>
-                    <div id="modal-body" class="text-break"></div>
-                </div>
-                <div class="modal-footer border-secondary">
-                    <button id="btn-open-link" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-box-arrow-up-right me-1"></i>開啟原文
-                    </button>
-                    <button id="btn-toggle-favorite" class="btn btn-outline-warning btn-sm">
-                        <i class="bi bi-star me-1"></i>收藏
-                    </button>
-                </div>
-            </div>
-        </div>
+    <div class="nav-tabs-custom">
+      <div class="tab active" data-category="all">全部</div>
+      <div class="tab" data-category="crypto">Crypto</div>
+      <div class="tab" data-category="stock">股票</div>
+      <div class="tab" data-category="favorites">收藏</div>
     </div>
 
-    <div class="modal fade" id="settings-modal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark-card">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title"><i class="bi bi-gear me-2"></i>設定</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-4">
-                        <h6 class="text-muted mb-3"><i class="bi bi-telegram me-2"></i>Telegram 設定</h6>
-                        <div class="form-group mb-3">
-                            <label class="form-label">Chat ID</label>
-                            <div class="input-group">
-                                <input type="text" id="setting-chat-id" class="form-control form-control-sm" placeholder="-1002133184985">
-                                <button id="btn-save-chat-id" class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-check-lg"></i>
-                                </button>
-                            </div>
-                            <small class="text-muted">更新後需重啟 Bot 生效</small>
-                        </div>
-                    </div>
+    <div id="news-list"></div>
 
-                    <div class="mb-4">
-                        <h6 class="text-muted mb-3"><i class="bi bi-bell me-2"></i>通知設定</h6>
-                        <div class="form-check form-switch mb-2">
-                            <input class="form-check-input" type="checkbox" id="setting-push" checked>
-                            <label class="form-check-label" for="setting-push">開啟推送通知</label>
-                        </div>
-                        <div class="row g-2 mb-2">
-                            <div class="col-6">
-                                <label class="form-label small">安靜時段 (開始)</label>
-                                <input type="time" id="setting-quiet-start" class="form-control form-control-sm" value="22:00">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small">安靜時段 (結束)</label>
-                                <input type="time" id="setting-quiet-end" class="form-control form-control-sm" value="08:00">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h6 class="text-muted mb-3"><i class="bi bi-display me-2"></i>顯示設定</h6>
-                        <div class="form-group">
-                            <label class="form-label">每頁顯示數量</label>
-                            <select id="setting-per-page" class="form-select form-select-sm">
-                                <option value="10">10 條</option>
-                                <option value="20" selected>20 條</option>
-                                <option value="50">50 條</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-secondary">
-                    <button id="btn-save-settings" class="btn btn-primary w-100">
-                        <i class="bi bi-check-lg me-2"></i>儲存設定
-                    </button>
-                </div>
-            </div>
-        </div>
+    <div class="bottom-nav-custom">
+      <button class="nav-btn active" data-page="home"><span class="icon">⌂</span>首頁</button>
+      <button class="nav-btn" data-page="favorites"><span class="icon">★</span>收藏</button>
+      <button class="nav-btn" data-page="settings"><span class="icon">⚙</span>設定</button>
     </div>
 
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="padding-bottom: 80px;">
-        <div id="error-toast" class="toast toast-error" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header bg-danger text-white">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                <strong class="me-auto">錯誤</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-            </div>
-            <div class="toast-body" id="error-toast-body"></div>
-        </div>
-        <div id="success-toast" class="toast toast-success" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header bg-success text-white">
-                <i class="bi bi-check-circle-fill me-2"></i>
-                <strong class="me-auto">成功</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-            </div>
-            <div class="toast-body" id="success-toast-body"></div>
-        </div>
+  </div>
+
+  <!-- ========== DESKTOP SIDEBAR ========== -->
+  <div class="desktop-sidebar" id="desktop-sidebar" style="display:none;">
+    <div class="desktop-sidebar-inner">
+      <div class="sidebar-logo">
+        <div class="logo-mark">G</div>
+        <span>CRYPTO NEWS</span>
+      </div>
+      <div class="sidebar-status">
+        <div class="row"><span class="label">Chat ID</span><span class="val" id="s-chat-id">—</span></div>
+        <div class="row"><span class="label">Bot</span><span class="val green" id="s-bot">OFF</span></div>
+        <div class="row"><span class="label">健康</span><span class="val" id="s-health">—</span></div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="snav active" data-category="all"><span class="sicon">📋</span>全部新聞</div>
+        <div class="snav" data-category="crypto"><span class="sicon">₿</span>Crypto</div>
+        <div class="snav" data-category="stock"><span class="sicon">📊</span>股票</div>
+        <div class="snav" data-category="favorites"><span class="sicon">★</span>收藏</div>
+      </div>
+      <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--line); margin-top:16px;">
+        <div class="snav" id="dsk-btn-settings"><span class="sicon">⚙</span>設定</div>
+      </div>
     </div>
+  </div>
 
-    <div id="conflict-alert" class="conflict-alert d-none">
-        <div class="conflict-alert-content">
-            <i class="bi bi-exclamation-triangle-fill text-warning fs-3 mb-2"></i>
-            <h5 class="mb-2">Conflict Error</h5>
-            <p class="mb-3">Bot 狀態異常，請檢查系統設定</p>
-            <button id="btn-dismiss-conflict" class="btn btn-outline-light btn-sm">確定</button>
-        </div>
+  <!-- ========== DESKTOP MAIN AREA ========== -->
+  <div class="desktop-main" id="desktop-main" style="display:none;">
+    <div class="desktop-news-header">
+      <h2 id="desktop-title">📋 全部新聞</h2>
+      <div class="desktop-news-actions">
+        <button class="btn-refresh" id="dsk-btn-refresh">⟳ 刷新</button>
+        <button id="dsk-btn-settings2">⚙ 設定</button>
+      </div>
     </div>
+    <div id="desktop-news-list"></div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/sw.js').catch(err => {
-                console.log('SW registration failed:', err);
-            });
-        }
+</div>
+</div>
 
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+<!-- 新聞詳情 Modal -->
+<div class="modal-overlay" id="news-modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+      <div>
+        <span id="modal-source" class="source" style="color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:700;"></span>
+        <span id="modal-date" style="color:var(--sub);font-family:var(--mono);font-size:11px;margin-left:8px;"></span>
+      </div>
+      <span style="cursor:pointer;color:var(--sub);font-size:18px;" id="modal-close-btn">×</span>
+    </div>
+    <h5 id="modal-title" style="margin-bottom:12px;"></h5>
+    <div id="modal-body" style="color:var(--sub);font-size:13.5px;line-height:1.6;"></div>
+    <div class="btn-row" style="margin-top:20px;">
+      <button id="btn-open-link" style="flex:1;padding:10px;border-radius:8px;background:var(--bg);color:var(--gold);border:1px solid var(--gold);font-size:13px;cursor:pointer;">開啟原文</button>
+      <button id="btn-toggle-favorite" style="flex:1;padding:10px;border-radius:8px;background:rgba(245,183,0,.12);color:var(--gold);border:1px solid rgba(245,183,0,.3);font-size:13px;cursor:pointer;">★ 收藏</button>
+    </div>
+  </div>
+</div>
 
-        let newsModal, settingsModal, errorToast, successToast;
+<!-- 設定 Modal -->
+<div class="modal-overlay" id="settings-modal-overlay">
+  <div class="modal-sheet" style="padding-top:12px;">
+    <div class="modal-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h5 style="margin:0;">設定</h5>
+      <span style="cursor:pointer;color:var(--sub);font-size:18px;" id="settings-close-btn">×</span>
+    </div>
+    <div class="modal-field">
+      <label>Chat ID</label>
+      <input type="text" id="setting-chat-id" placeholder="-1002133184985">
+    </div>
+    <button class="btn-gold" id="btn-save-chat-id" style="margin-bottom:16px;">更新 Chat ID</button>
+    <hr style="border-color:var(--line);margin:16px 0;">
+    <div class="modal-field" style="display:flex;align-items:center;justify-content:space-between;">
+      <label style="margin:0;">開啟推送通知</label>
+      <input type="checkbox" id="setting-push" checked style="width:auto;">
+    </div>
+    <div class="btn-row">
+      <div class="modal-field" style="flex:1;">
+        <label>安靜時段 (開始)</label>
+        <input type="time" id="setting-quiet-start" value="22:00">
+      </div>
+      <div class="modal-field" style="flex:1;">
+        <label>安靜時段 (結束)</label>
+        <input type="time" id="setting-quiet-end" value="08:00">
+      </div>
+    </div>
+    <button class="btn-gold" id="btn-save-settings" style="margin-top:16px;">儲存設定</button>
+  </div>
+</div>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            newsModal = new bootstrap.Modal(document.getElementById('news-modal'));
-            settingsModal = new bootstrap.Modal(document.getElementById('settings-modal'));
-            errorToast = new bootstrap.Toast(document.getElementById('error-toast'));
-            successToast = new bootstrap.Toast(document.getElementById('success-toast'));
-        });
-    </script>
+<!-- Toast -->
+<div class="toast-msg" id="toast-msg"></div>
+
+<script src="/static/js/app.js"></script>
+<script>
+// Auto-detect desktop and show desktop layout
+(function(){
+  const w = window.innerWidth;
+  const isDesktop = w >= 768;
+  const phoneEl = document.querySelector('.phone');
+  const sidebar = document.getElementById('desktop-sidebar');
+  const main = document.getElementById('desktop-main');
+
+  if(isDesktop){
+    phoneEl.style.display = 'none';
+    sidebar.style.display = 'block';
+    main.style.display = 'flex';
+    document.getElementById('desktop-news-list').style.display = 'grid';
+  }
+
+  window.addEventListener('resize', () => {
+    const d = window.innerWidth >= 768;
+    if(d){
+      phoneEl.style.display = 'none';
+      sidebar.style.display = 'block';
+      main.style.display = 'flex';
+    } else {
+      phoneEl.style.display = 'flex';
+      sidebar.style.display = 'none';
+      main.style.display = 'none';
+    }
+  });
+})();
+
+  const newsModal = document.getElementById('news-modal-overlay');
+  const settingsModal = document.getElementById('settings-modal-overlay');
+  const toastEl = document.getElementById('toast-msg');
+  let toastTimer;
+
+  function showToast(msg, type='success'){
+    toastEl.textContent = msg;
+    toastEl.className = 'toast-msg show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2500);
+  }
+
+  document.getElementById('modal-close-btn').onclick = () => newsModal.classList.remove('show');
+  document.getElementById('settings-close-btn').onclick = () => settingsModal.classList.remove('show');
+  document.getElementById('btn-settings').onclick = () => { settingsModal.classList.add('show'); loadSettings(); };
+  document.getElementById('btn-refresh').onclick = () => { loadNews(); loadStatus(); };
+  document.getElementById('dsk-btn-settings').onclick = () => { settingsModal.classList.add('show'); loadSettings(); };
+  document.getElementById('dsk-btn-settings2').onclick = () => { settingsModal.classList.add('show'); loadSettings(); };
+  document.getElementById('dsk-btn-refresh').onclick = () => { loadNews(); loadStatus(); };
+
+  newsModal.onclick = (e) => { if(e.target === newsModal) newsModal.classList.remove('show'); };
+  settingsModal.onclick = (e) => { if(e.target === settingsModal) settingsModal.classList.remove('show'); };
+
+  // Bottom nav
+  document.querySelectorAll('.bottom-nav-custom .nav-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.bottom-nav-custom .nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const page = btn.dataset.page;
+      if(page === 'settings'){ settingsModal.classList.add('show'); loadSettings(); }
+      else if(page === 'favorites'){ currentCategory = 'favorites'; loadFavoritesToView(); }
+      else { currentCategory = 'all'; loadNews(); }
+    };
+  });
+
+  // Desktop sidebar nav
+  document.querySelectorAll('.sidebar-nav .snav').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.sidebar-nav .snav').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.dataset.category;
+      currentCategory = cat;
+      const titles = {all:'📋 全部新聞',crypto:'₿ Crypto',stock:'📊 股票',favorites:'★ 收藏'};
+      document.getElementById('desktop-title').textContent = titles[cat] || '📋 全部新聞';
+      if(cat === 'favorites') loadFavoritesToView();
+      else loadNews();
+    };
+  });
+
+  // Sync status to desktop sidebar
+  const origLoadStatus = window.loadStatus;
+  window.loadStatus = async function(){
+    await origLoadStatus();
+    const data = {
+      chatId: document.getElementById('status-chat-id').textContent,
+      botIsOn: document.getElementById('status-bot-text').textContent.includes('ON'),
+      health: document.getElementById('status-health-text').textContent
+    };
+    document.getElementById('s-chat-id').textContent = data.chatId || '—';
+    const botEl = document.getElementById('s-bot');
+    botEl.textContent = data.botIsOn ? 'ON' : 'OFF';
+    botEl.className = 'val ' + (data.botIsOn ? 'green' : 'red');
+    document.getElementById('s-health').textContent = data.health || '—';
+  };
+</script>
 </body>
 </html>

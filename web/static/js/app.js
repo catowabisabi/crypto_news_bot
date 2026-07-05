@@ -7,19 +7,11 @@ let favorites = [];
 let currentNewsItem = null;
 let statusInterval = null;
 
-let newsModal, settingsModal, errorToast, successToast;
-
 const newsList = document.getElementById('news-list');
-const tabs = document.querySelectorAll('[data-category]');
-const bottomNav = document.querySelectorAll('[data-page]');
-const conflictAlert = document.getElementById('conflict-alert');
+const tabs = document.querySelectorAll('.nav-tabs-custom .tab');
+const bottomNav = document.querySelectorAll('.bottom-nav-custom .nav-btn');
 
 document.addEventListener('DOMContentLoaded', async () => {
-    newsModal = new bootstrap.Modal(document.getElementById('news-modal'));
-    settingsModal = new bootstrap.Modal(document.getElementById('settings-modal'));
-    errorToast = new bootstrap.Toast(document.getElementById('error-toast'));
-    successToast = new bootstrap.Toast(document.getElementById('success-toast'));
-
     await loadSettings();
     await loadNews();
     await loadFavorites();
@@ -40,27 +32,6 @@ function initEventListeners() {
         });
     });
 
-    bottomNav.forEach(item => {
-        item.addEventListener('click', () => {
-            bottomNav.forEach(n => n.classList.remove('active'));
-            item.classList.add('active');
-            const page = item.dataset.page;
-
-            if (page === 'settings') {
-                settingsModal.show();
-            } else if (page === 'favorites') {
-                currentCategory = 'favorites';
-                loadFavoritesToView();
-            } else {
-                currentCategory = 'all';
-                loadNews();
-            }
-        });
-    });
-
-    document.getElementById('modal-close')?.addEventListener('click', () => newsModal.hide());
-    document.getElementById('settings-close')?.addEventListener('click', () => settingsModal.hide());
-
     document.getElementById('btn-open-link')?.addEventListener('click', () => {
         if (currentNewsItem && currentNewsItem.連結) {
             window.open(currentNewsItem.連結, '_blank');
@@ -71,26 +42,8 @@ function initEventListeners() {
         toggleFavorite(currentNewsItem);
     });
 
-    document.getElementById('btn-refresh')?.addEventListener('click', () => {
-        loadNews();
-        loadStatus();
-    });
-
-    document.getElementById('btn-settings')?.addEventListener('click', () => {
-        settingsModal.show();
-    });
-
     document.getElementById('btn-save-settings')?.addEventListener('click', saveSettings);
-
     document.getElementById('btn-save-chat-id')?.addEventListener('click', saveChatId);
-
-    document.getElementById('btn-dismiss-conflict')?.addEventListener('click', () => {
-        conflictAlert.classList.add('d-none');
-    });
-
-    document.getElementById('news-modal')?.addEventListener('hidden.bs.modal', () => {
-        currentNewsItem = null;
-    });
 }
 
 async function loadStatus() {
@@ -101,32 +54,26 @@ async function loadStatus() {
         if (result.success) {
             const data = result.data;
 
-            document.getElementById('status-chat-id').textContent = data.chatId || '-';
+            document.getElementById('status-chat-id').textContent = data.chatId || '—';
 
-            const healthBadge = document.getElementById('status-health');
-            if (data.health === 'Healthy') {
-                healthBadge.className = 'badge bg-success';
-                healthBadge.textContent = 'Healthy';
-            } else {
-                healthBadge.className = 'badge bg-danger';
-                healthBadge.textContent = 'Error';
-            }
+            const healthEl = document.getElementById('status-health-text');
+            healthEl.textContent = data.health === 'Healthy' ? 'Healthy' : 'Error';
+            healthEl.style.color = data.health === 'Healthy' ? 'var(--bull)' : 'var(--bear)';
 
-            const botBadge = document.getElementById('status-bot');
+            const dot = document.getElementById('status-dot');
+            const botText = document.getElementById('status-bot-text');
             if (data.botIsOn) {
-                botBadge.className = 'badge bg-success';
-                botBadge.textContent = 'ON';
+                dot.classList.remove('off');
+                botText.textContent = '● BOT ON';
+                botText.style.color = 'var(--bull)';
             } else {
-                botBadge.className = 'badge bg-secondary';
-                botBadge.textContent = 'OFF';
+                dot.classList.add('off');
+                botText.textContent = '● BOT OFF';
+                botText.style.color = 'var(--sub)';
             }
 
             if (data.chatId) {
                 document.getElementById('setting-chat-id').value = data.chatId;
-            }
-
-            if (data.hasConflict) {
-                conflictAlert.classList.remove('d-none');
             }
         }
     } catch (error) {
@@ -140,103 +87,130 @@ function startStatusPolling() {
 }
 
 async function loadNews() {
-    showLoading(true);
-
+    newsList.innerHTML = '<div style="color:var(--sub);font-size:13px;text-align:center;padding:40px 0;">載入中...</div>';
     try {
         const response = await fetch(`${API_BASE}/news?category=${currentCategory}&page=${currentPage}&per_page=${perPage}`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const result = await response.json();
 
         if (result.success) {
             allNews = result.data;
             renderNews(allNews);
+            updateTicker(allNews);
         } else {
-            throw new Error(result.error || 'Failed to load news');
+            throw new Error(result.error || 'Failed');
         }
     } catch (error) {
         console.error('Failed to load news:', error);
-        showError('載入失敗: ' + error.message);
-        newsList.innerHTML = `
-            <div class="col-12 empty-state">
-                <div class="empty-state-icon">⚠️</div>
-                <p>載入失敗，請稍後重試</p>
-            </div>
-        `;
-    } finally {
-        showLoading(false);
+        newsList.innerHTML = '<div style="color:var(--bear);font-size:13px;text-align:center;padding:40px 0;">載入失敗</div>';
     }
+}
+
+function updateTicker(news) {
+    if (!news || news.length === 0) return;
+    const symbols = ['BTC','ETH','SOL','NVDA','TSLA','AAPL','MSFT','META','DOGE','XRP'];
+    const pairs = symbols.slice(0, 5);
+    const track = document.getElementById('ticker-track');
+    let html = '';
+    pairs.forEach(sym => {
+        const item = news.find(n => {
+            const text = (n.中文標題 || '') + (n.英文標題 || '') + (n.建議 || '');
+            return text.toLowerCase().includes(sym.toLowerCase());
+        });
+        const sentiment = item ? getSentimentClass(item.建議) : '';
+        const cls = sentiment === 'positive' ? 'up' : sentiment === 'negative' ? 'down' : 'up';
+        const icon = cls === 'up' ? '▲ 看好' : '▼ 看淡';
+        html += `<span>${sym} <span class="${cls}">${icon}</span></span>`;
+    });
+    // Duplicate for seamless scroll
+    track.innerHTML = html + html;
 }
 
 async function loadFavorites() {
     try {
         const response = await fetch(`${API_BASE}/favorites`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const result = await response.json();
-        if (result.success) {
-            favorites = result.data || [];
-        }
+        if (result.success) favorites = result.data || [];
     } catch (error) {
         console.error('Failed to load favorites:', error);
     }
 }
 
 function loadFavoritesToView() {
+    tabs.forEach(t => t.classList.remove('active'));
+    document.querySelector('.nav-tabs-custom .tab[data-category="favorites"]')?.classList.add('active');
     const favNews = favorites.map(f => f.news_data).filter(Boolean);
     renderNews(favNews);
 }
 
 function renderNews(news) {
     if (!news || news.length === 0) {
-        newsList.innerHTML = `
-            <div class="col-12 empty-state">
-                <div class="empty-state-icon">📭</div>
-                <p>暫時沒有新聞</p>
-            </div>
-        `;
+        newsList.innerHTML = '';
+        const dl = document.getElementById('desktop-news-list');
+        if (dl) dl.innerHTML = '';
         return;
     }
 
-    newsList.innerHTML = news.map((item, index) => {
+    const isDesktop = window.innerWidth >= 768;
+
+    // Mobile card HTML generator
+    const mobileHtml = news.map((item, index) => {
         const isFavorited = favorites.some(f => JSON.stringify(f.news_data) === JSON.stringify(item));
         const sentimentClass = getSentimentClass(item.建議);
+        const sentimentText = getSentimentText(item.建議);
+        const sentimentIcon = sentimentClass === 'positive' ? '▲' : sentimentClass === 'negative' ? '▼' : '—';
         const summary = item.中文摘要 || item.中文總結 || item.建議 || '';
-        const shortSummary = summary.length > 120 ? summary.substring(0, 120) + '...' : summary;
+        const shortSummary = summary.length > 100 ? summary.substring(0, 100) + '…' : summary;
+        const favIcon = isFavorited ? '★' : '☆';
 
         return `
-            <div class="col-12 col-md-6 col-lg-4">
-                <article class="news-card" data-index="${index}">
-                    <div class="news-card-header">
-                        <span class="news-source">${item.作者 || '新聞來源'}</span>
-                        <span class="news-date">${formatDate(item.發佈時間)}</span>
+            <div class="news-card ${sentimentClass}" data-index="${index}">
+                <div class="news-card-header">
+                    <span class="source">${item.作者 || '新聞來源'}</span>
+                    <span>${formatDate(item.發佈時間)}</span>
+                </div>
+                <div class="news-title">${item.中文標題 || item.英文標題 || '無標題'}</div>
+                <div class="news-summary">${shortSummary}</div>
+                <div class="news-footer">
+                    <span class="sentiment-badge ${sentimentClass}">${sentimentText} ${sentimentIcon}</span>
+                    <div class="card-actions">
+                        <button class="action-btn ${isFavorited ? 'active' : ''}"
+                                onclick="event.stopPropagation(); toggleFavorite(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            ${favIcon}
+                        </button>
                     </div>
-                    <h3 class="news-title">${item.中文標題 || item.英文標題 || '無標題'}</h3>
-                    <p class="news-summary">${shortSummary}</p>
-                    <div class="news-footer">
-                        <span class="sentiment-badge ${sentimentClass}">${getSentimentText(item.建議)}</span>
-                        <div class="card-actions">
-                            <button class="action-btn ${isFavorited ? 'favorited' : ''}"
-                                    onclick="event.stopPropagation(); toggleFavorite(${JSON.stringify(item).replace(/"/g, '&quot;')})"
-                                    title="${isFavorited ? '取消收藏' : '收藏'}">
-                                ${isFavorited ? '⭐' : '☆'}
-                            </button>
-                        </div>
-                    </div>
-                </article>
+                </div>
             </div>
         `;
     }).join('');
 
-    document.querySelectorAll('.news-card').forEach((card) => {
+    newsList.innerHTML = mobileHtml;
+
+    // Desktop: grid layout
+    const desktopList = document.getElementById('desktop-news-list');
+    if (desktopList) {
+        desktopList.innerHTML = mobileHtml;
+    }
+
+    // Attach click handlers (mobile only has #news-list)
+    document.querySelectorAll('#news-list .news-card').forEach(card => {
         card.addEventListener('click', () => {
             const index = parseInt(card.dataset.index);
             openNewsDetail(index);
         });
     });
+
+    // Desktop click handlers
+    if (desktopList) {
+        document.querySelectorAll('#desktop-news-list .news-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const index = parseInt(card.dataset.index);
+                openNewsDetail(index);
+            });
+        });
+    }
 }
 
 function openNewsDetail(index) {
@@ -245,39 +219,26 @@ function openNewsDetail(index) {
         : allNews[index];
 
     if (!news) return;
-
     currentNewsItem = news;
 
     document.getElementById('modal-source').textContent = news.作者 || '新聞來源';
-    document.getElementById('modal-source').className = 'badge bg-primary mb-1';
     document.getElementById('modal-date').textContent = formatDate(news.發佈時間);
     document.getElementById('modal-title').textContent = news.中文標題 || news.英文標題;
 
     const body = document.getElementById('modal-body');
     body.innerHTML = `
-        <div class="mb-3">
-            <h6 class="text-muted mb-2"><i class="bi bi-card-text me-2"></i>摘要</h6>
-            <p class="text-break">${news.中文摘要 || news.英文摘要 || '無摘要'}</p>
-        </div>
-        <div class="mb-3">
-            <h6 class="text-muted mb-2"><i class="bi bi-lightbulb me-2"></i>分析與建議</h6>
-            <p class="text-break">${news.中文總結 || news.建議 || '無分析'}</p>
-        </div>
-        ${news.中文內容 ? `
-        <div class="mb-3">
-            <h6 class="text-muted mb-2"><i class="bi bi-file-text me-2"></i>內容</h6>
-            <p class="text-break">${news.中文內容}</p>
-        </div>
-        ` : ''}
+        <p style="margin-bottom:12px;">${news.中文摘要 || news.英文摘要 || '無摘要'}</p>
+        ${news.中文總結 || news.建議 ? `<p><strong style="color:var(--gold);font-size:12px;">分析:</strong> ${news.中文總結 || news.建議}</p>` : ''}
+        ${news.中文內容 ? `<p style="margin-top:12px;font-size:12.5px;color:var(--sub);">${news.中文內容}</p>` : ''}
     `;
 
     const isFavorited = favorites.some(f =>
         JSON.stringify(f.news_data) === JSON.stringify(news)
     );
-    const favBtn = document.getElementById('btn-toggle-favorite');
-    favBtn.innerHTML = `<i class="bi bi-star me-1"></i>${isFavorited ? '已收藏' : '收藏'}`;
+    document.getElementById('btn-toggle-favorite').textContent = isFavorited ? '★ 已收藏' : '★ 收藏';
+    document.getElementById('btn-toggle-favorite').style.color = isFavorited ? 'var(--bull)' : 'var(--gold)';
 
-    newsModal.show();
+    document.getElementById('news-modal-overlay').classList.add('show');
 }
 
 async function toggleFavorite(news) {
@@ -296,28 +257,27 @@ async function toggleFavorite(news) {
                 body: JSON.stringify({ news_id: favItem?.news_id || Date.now() })
             });
             if (!response.ok) throw new Error('Delete failed');
-            showSuccess('已移除收藏');
+            showToast('已移除收藏', 'success');
         } else {
             const response = await fetch(`${API_BASE}/favorites`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    news_id: Date.now(),
-                    news_data: news
-                })
+                body: JSON.stringify({ news_id: Date.now(), news_data: news })
             });
             if (!response.ok) throw new Error('Add failed');
-            showSuccess('已加入收藏');
+            showToast('已加入收藏', 'success');
         }
 
         await loadFavorites();
 
         if (currentCategory === 'favorites') {
             loadFavoritesToView();
+        } else {
+            renderNews(allNews);
         }
     } catch (error) {
         console.error('Failed to toggle favorite:', error);
-        showError('操作失敗');
+        showToast('操作失敗', 'error');
     }
 }
 
@@ -332,13 +292,9 @@ async function loadSettings() {
             document.getElementById('setting-push').checked = settings.pushEnabled !== false;
             document.getElementById('setting-quiet-start').value = settings.quietStart || '22:00';
             document.getElementById('setting-quiet-end').value = settings.quietEnd || '08:00';
-            document.getElementById('setting-per-page').value = settings.perPage || 20;
-
             if (settings.chatId) {
                 document.getElementById('setting-chat-id').value = settings.chatId;
             }
-
-            perPage = settings.perPage || 20;
         }
     } catch (error) {
         console.error('Failed to load settings:', error);
@@ -350,7 +306,7 @@ async function saveSettings() {
         pushEnabled: document.getElementById('setting-push').checked,
         quietStart: document.getElementById('setting-quiet-start').value,
         quietEnd: document.getElementById('setting-quiet-end').value,
-        perPage: parseInt(document.getElementById('setting-per-page').value),
+        perPage: perPage,
         chatId: document.getElementById('setting-chat-id').value
     };
 
@@ -360,24 +316,19 @@ async function saveSettings() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(settings)
         });
-
         if (!response.ok) throw new Error('HTTP error');
-
-        perPage = settings.perPage;
-        loadNews();
-        settingsModal.hide();
-        showSuccess('設定已儲存');
+        showToast('設定已儲存', 'success');
+        document.getElementById('settings-modal-overlay').classList.remove('show');
     } catch (error) {
         console.error('Failed to save settings:', error);
-        showError('儲存失敗');
+        showToast('儲存失敗', 'error');
     }
 }
 
 async function saveChatId() {
     const chatId = document.getElementById('setting-chat-id').value.trim();
-
     if (!chatId) {
-        showError('請輸入 Chat ID');
+        showToast('請輸入 Chat ID', 'error');
         return;
     }
 
@@ -387,49 +338,30 @@ async function saveChatId() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chatId })
         });
-
         const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.error || 'Update failed');
-        }
-
-        showSuccess('Chat ID 已更新');
+        if (!response.ok) throw new Error(result.error || 'Update failed');
+        showToast('Chat ID 已更新', 'success');
         loadStatus();
     } catch (error) {
         console.error('Failed to update Chat ID:', error);
-        showError('更新失敗: ' + error.message);
+        showToast('更新失敗: ' + error.message, 'error');
     }
 }
 
 function startAutoRefresh() {
     setInterval(() => {
-        if (currentCategory !== 'favorites' && !settingsModal._element.classList.contains('show')) {
+        if (currentCategory !== 'favorites') {
             loadNews();
         }
     }, 60000);
 }
 
-function showLoading(show) {
-    const loading = document.getElementById('loading');
-    if (show) {
-        newsList.innerHTML = `
-            <div class="col-12 text-center py-5" id="loading">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-3 text-muted">載入中...</p>
-            </div>
-        `;
-    }
-}
-
-function showError(message) {
-    document.getElementById('error-toast-body').textContent = message;
-    errorToast.show();
-}
-
-function showSuccess(message) {
-    document.getElementById('success-toast-body').textContent = message;
-    successToast.show();
+function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast-msg');
+    toast.textContent = msg;
+    toast.className = 'toast-msg show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 function formatDate(dateStr) {
@@ -443,7 +375,6 @@ function formatDate(dateStr) {
         if (diff < 3600000) return `${Math.floor(diff / 60000)} 分鐘前`;
         if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小時前`;
         if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
-
         return date.toLocaleDateString('zh-TW');
     } catch {
         return dateStr;
@@ -451,24 +382,24 @@ function formatDate(dateStr) {
 }
 
 function getSentimentClass(advice) {
-    if (!advice) return 'sentiment-neutral';
+    if (!advice) return 'neutral';
     const text = advice.toLowerCase();
-    if (text.includes('買') || text.includes('漲') || text.includes('好') || text.includes('正面')) {
-        return 'sentiment-positive';
+    if (text.includes('買') || text.includes('漲') || text.includes('好') || text.includes('正面') || text.includes('看好')) {
+        return 'positive';
     }
-    if (text.includes('賣') || text.includes('跌') || text.includes('壞') || text.includes('負面') || text.includes('風險')) {
-        return 'sentiment-negative';
+    if (text.includes('賣') || text.includes('跌') || text.includes('壞') || text.includes('負面') || text.includes('風險') || text.includes('看淡')) {
+        return 'negative';
     }
-    return 'sentiment-neutral';
+    return 'neutral';
 }
 
 function getSentimentText(advice) {
     if (!advice) return '中性';
     const text = advice.toLowerCase();
-    if (text.includes('買') || text.includes('漲') || text.includes('好') || text.includes('正面')) {
+    if (text.includes('買') || text.includes('漲') || text.includes('好') || text.includes('正面') || text.includes('看好')) {
         return '看好';
     }
-    if (text.includes('賣') || text.includes('跌') || text.includes('壞') || text.includes('負面') || text.includes('風險')) {
+    if (text.includes('賣') || text.includes('跌') || text.includes('壞') || text.includes('負面') || text.includes('風險') || text.includes('看淡')) {
         return '看淡';
     }
     return '中性';
