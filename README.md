@@ -17,14 +17,6 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 
-<br><br>
-
-<img src="img/web_ui_desktop.png" alt="Web App UI" width="100%">
-
-<br><br>
-
-<img src="img/web_ui_iphone.png" alt="Mobile UI" width="300">
-
 </div>
 
 ---
@@ -71,7 +63,13 @@ Crypto News Bot is an automated crypto/stock news intelligence system. It contin
 ## 📱 介面預覽 · Screenshots
 
 <div align="center">
-<img src="img/ui.png" alt="Web UI Screenshot" width="380">
+
+
+<img src="img/web_ui_desktop.png" alt="Web App UI" width="100%">
+
+<br><br>
+
+<img src="img/web_ui_iphone.png" alt="Mobile UI" width="380">
 </div>
 
 <p align="center"><i>手機優先設計，深色主題，一眼掌握市場情緒<br>Mobile-first design with dark theme — market sentiment at a glance</i></p>
