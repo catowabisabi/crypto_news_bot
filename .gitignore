@@ -1,0 +1,32 @@
+# Environment variables (contains sensitive information)
+.env
+
+# Firebase credentials (contains sensitive information)
+firebase-credentials.json
+
+# FCM device tokens (contains device registration tokens)
+fcm_tokens.json
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local database files
+*.db
+
+# MongoDB (if local)
+mongodb.py

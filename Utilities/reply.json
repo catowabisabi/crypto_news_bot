@@ -1,0 +1,21 @@
+{
+
+        "Investment": [ {"Asset":"比特幣","Symbol" : "BTC", "Sentiment":"負面"},
+    
+                        {"Asset":"以太幣","Symbol" : "ETH", "Sentiment":"正面"},
+    
+                        {"Asset":"阿根廷股市","Symbol" : "N/A", "Sentiment":"負面"}],
+    
+        "Links": [
+    
+          "http://example.com/news/bitcoin-drop",
+    
+          "http://example.com/news/ethereum-rise",
+    
+          "http://example.com/news/argentina-stock-crash"
+    
+        ],
+    
+        "Analysis": "近期比特幣價格下跌，交易價格約為6.6萬美元，市場對其前景持保留態度。與此同時，以太幣在技術升級後表現強勁，多數分析師看好其市場表現。阿根廷股市因政府新政影響，總統Milei的政策使投資者感到不安，股市急跌。"
+    
+      }
